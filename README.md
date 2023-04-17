@@ -1,41 +1,33 @@
-sleif.letsencrypt_nginx_docker
-============
+# sleif.letsencrypt_nginx_container
 
 This role runs a nginx based letsencrypt stack on docker.
 
-Requirements
-------------
+## Requirements
 
 Use it on a machine setup with ansible role sleif.docker.
 
-Role Variables
---------------
+## Role Variables
+
 - container_storage_dir_base (/srv)
-- nameserver_fallback_needed (true, in case you want local network independed DNS, example pihole on same docker host)
+- nameserver_fallback_needed (true, in case you want local network independent DNS, example pihole on same docker host)
 - DOCKER_NETWORK_NAME (can be defined in sleif.docker)
 
-Dependencies
-------------
+## Dependencies
 
-Needs geerlingguy.docker to make sure Docker is available.
-Needs sleif.docker to make sure Docker is configured as needed.
-
-Example Playbook
-----------------
+Enterprise Linux version 9
+## Example Playbook
 
     - hosts: "server"
       user: root
       vars:
         DOCKER_NETWORK_NAME: 'custom_docker_network'
       roles:
-        - { role: sleif.letsencrypt_nginx_docker, tags: "letsencrypt_nginx_docker" }
+        - { role: sleif.letsencrypt_nginx_container, tags: "letsencrypt_nginx_container" }
 
-License
--------
+## License
 
 MIT
 
-Author Information
-------------------
+## Author Information
 
 Created in 2021 by Sebastian Berthold

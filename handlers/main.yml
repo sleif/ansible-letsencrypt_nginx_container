@@ -1,4 +1,4 @@
 ---
 
-- name: restart_nginx_proxy
-  command: docker kill -s HUP nginx-proxy
+- name: Restart_nginx_proxy
+  ansible.builtin.command: podman kill -s HUP nginx-proxy
