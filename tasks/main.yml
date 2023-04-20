@@ -21,40 +21,32 @@
     regexp: "{{ item.regexp }}"
     line: "{{ item.line }}"
   with_items:
-    - { regexp: '^nameserver 1\.1\.1\.1', line: 'nameserver 1.1.1.1' }
+    - {regexp: '^nameserver 1\.1\.1\.1', line: 'nameserver 1.1.1.1'}
   when: nameserver_fallback_needed | bool
 
-- name: Letsencrypt_nginx_container | pull latest image
-  containers.podman.podman_image:
-    name: "docker.io/jwilder/nginx-proxy:latest"
-    force: true
-
-- name: Letsencrypt_nginx_container | Gather info about the possibly running pod
-  containers.podman.podman_pod_info:
-    name: "{{ pod_name }}"
-  register: _pod_info
-  when:
-    - pod_name is defined
-    - pod_name | length > 0
-
-
-- name: Letsencrypt_nginx_container | create the pod
-  containers.podman.podman_pod:
-    name: "{{ pod_name }}"
-    publish: "{{ pod_published_ports | default(omit) }}"
-  register: _pod_info
-  when:
-    - pod_name is defined
-    - pod_name | length > 0
-    - _pod_info.pods | length == 0
-
-- ansible.builtin.debug: var=_pod_info
+# - name: Letsencrypt_nginx_container | Gather info about the possibly running pod
+#   containers.podman.podman_pod_info:
+#     name: "{{ pod_name }}"
+#   register: _pod_info
+#   when:
+#     - pod_name is defined
+#     - pod_name | length > 0
+# - name: Letsencrypt_nginx_container | create the pod
+#   containers.podman.podman_pod:
+#     name: "{{ pod_name }}"
+#     publish: "{{ pod_published_ports | default(omit) }}"
+#   register: _pod_info
+#   when:
+#     - pod_name is defined
+#     - pod_name | length > 0
+#     - _pod_info.pods | length == 0
+# - ansible.builtin.debug: var=_pod_info
 
 - name: Letsencrypt_nginx_container | create persistant nextcloud data directories
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: '0750'
+    mode: '0755'
   loop:
     - "{{ container_storage_dir_base }}/nginx/htpasswd"
     - "{{ container_storage_dir_base }}/nginx/certs"
@@ -62,14 +54,22 @@
     - "{{ container_storage_dir_base }}/nginx/html"
     - "{{ container_storage_dir_base }}/nginx/log"
 
-- name: Letsencrypt_nginx_container | start letsencrypt container
+# - name: Letsencrypt_nginx_container | pull latest image
+#   containers.podman.podman_image:
+#     name: "docker.io/jwilder/nginx-proxy:latest"
+#     force: true
+
+- name: Letsencrypt_nginx_container | start jwilder nginx-proxy container
   containers.podman.podman_container:
     name: "nginx-proxy"
-    image: jwilder/nginx-proxy
-    pod: "{{ pod_name | default(omit) }}"
+    image: docker.io/nginxproxy/nginx-proxy
+    # image: docker.io/jwilder/nginx-proxy
+    # pod: "{{ pod_name | default(omit) }}"
+    publish: "{{ pod_published_ports | default(omit) }}"
     state: started
-    # restart_policy: always
+    restart_policy: always
     recreate: true
+    restart: true
     # force_restart: true
     volumes:
       - "{{ container_storage_dir_base }}/nginx/htpasswd:/etc/nginx/htpasswd:ro,Z"
@@ -78,28 +78,14 @@
       - "{{ container_storage_dir_base }}/nginx/html:/usr/share/nginx/html:Z"
       - "{{ container_storage_dir_base }}/nginx/log:/var/log/nginx:Z"
       - /run/podman/podman.sock:/tmp/docker.sock:ro,Z
-    # security_opt:
-    #   - 'label=type:docker_t'
+    label:
+      com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: true
+    security_opt:
+      - label:type:docker_t
   # register: _podstart
   # ignore_errors: true
 
-- debug: var=_podstart
-
-# - name: Letsencrypt_nginx_container | start letsencrypt container
-#   containers.podman.podman_container:
-#     name: "nginx-proxy"
-#     image: jwilder/nginx-proxy
-#     pod: "{{ pod_name | default(omit) }}"
-#     state: started
-#     restart_policy: always
-#     recreate: true
-#     volumes:
-#       - "{{ container_storage_dir_base }}/nginx/htpasswd:/etc/nginx/htpasswd:ro,Z"
-#       - "{{ container_storage_dir_base }}/nginx/certs:/etc/nginx/certs:ro,Z"
-#       - "{{ container_storage_dir_base }}/nginx/vhost.d:/etc/nginx/vhost.d:Z"
-#       - "{{ container_storage_dir_base }}/nginx/html:/usr/share/nginx/html:Z"
-#       - "{{ container_storage_dir_base }}/nginx/log:/var/log/nginx:Z"
-#       # - /var/run/docker.sock:/tmp/docker.sock:ro,Z
+# - debug: var=_podstart
 
 - name: Letsencrypt_nginx_container | additional nginx proxy configuration nginx/vhost.d/default
   ansible.builtin.lineinfile:
@@ -118,148 +104,49 @@
   notify: Restart_nginx_proxy
   tags: nginx_defaults
 
-- pause:
+# - name: Letsencrypt_nginx_container | pull latest image of jrcs letsencrypt-nginx-proxy-companion
+#   containers.podman.podman_image:
+#     name: "docker.io/jrcs/letsencrypt-nginx-proxy-companion:latest"
+#     force: true
 
-
-
-
-
-- name: Letsencrypt_nginx_container | nginx-proxy
-  docker_container:
-    name: nginx-proxy
-    image: jwilder/nginx-proxy
-    state: started
-    recreate: yes
-    restart_policy: always
-    restart: yes
-    pull: yes
-    networks:
-      - name: "{{ DOCKER_NETWORK_NAME }}"
-        aliases:
-          - nginx-proxy-container
-    networks_cli_compatible: yes
-    volumes:
-      - "{{ container_storage_dir_base }}/nginx/htpasswd:/etc/nginx/htpasswd:ro,Z"
-      - "{{ container_storage_dir_base }}/nginx/certs:/etc/nginx/certs:ro,Z"
-      - "{{ container_storage_dir_base }}/nginx/vhost.d:/etc/nginx/vhost.d:Z"
-      - "{{ container_storage_dir_base }}/nginx/html:/usr/share/nginx/html:Z"
-      - "{{ container_storage_dir_base }}/nginx/log:/var/log/nginx:Z"
-      - /var/run/docker.sock:/tmp/docker.sock:ro,Z
-    security_opts: label:type:docker_t
-    ports:
-      - '443:443/tcp'
-      - '80:80/tcp'
-    env:
-      DEFAULT_HOST: "{{ nginx_proxy_default_host }}"
-
-- name: "Letsencrypt_nginx_container | additional nginx proxy configuration {{ nginx_storage_dir_base }}/nginx/vhost.d/default"
-  lineinfile:
-    path: "{{ container_storage_dir_base }}/nginx/vhost.d/default"
-    create: yes
-    line: "{{ item.line }}"
-    regexp: "{{ item.regexp }}"
-  loop:
-    - { regexp: "^client_max_body_size.*",  line: "client_max_body_size        {{ client_max_body_size }};" }
-    #- { regexp: "^proxy_connect_timeout.*", line: "proxy_connect_timeout       601;"  }
-    #- { regexp: "^proxy_send_timeout.*",    line: "proxy_send_timeout          601;"  }
-    #- { regexp: "^proxy_read_timeout.*",    line: "proxy_read_timeout          601;"  }
-    #- { regexp: "^send_timeout.*",          line: "send_timeout                601;"  }
-    - { regexp: "^fastcgi_request_buffering.*",  line: "fastcgi_request_buffering off;" }
-  notify: restart_nginx_proxy
-  tags: nginx_defaults
-
-- name: Letsencrypt_nginx_container | letsencrypt-nginx-proxy-companion-Container starten
-  docker_container:
-    name: nginx-letsencrypt
-    image: jrcs/letsencrypt-nginx-proxy-companion
+- name: Letsencrypt_nginx_container | start jrcs letsencrypt-nginx-proxy-companion container
+  containers.podman.podman_container:
+    name: "nginx-letsencrypt"
+    image: "docker.io/nginxproxy/acme-companion:latest"
+    # image: "docker.io/jrcs/letsencrypt-nginx-proxy-companion:latest"
+    # pod: "{{ pod_name | default(omit) }}"
     state: started
     restart_policy: always
-    recreate: yes
-    restart: yes
-    pull: yes
-    networks:
-      - name: "{{ DOCKER_NETWORK_NAME }}"
-        aliases:
-          - nginx-letsencrypt-container
-    networks_cli_compatible: yes
+    recreate: true
+    restart: true
+    # force_restart: true
     volumes_from: nginx-proxy
     volumes:
+      # - "{{ container_storage_dir_base }}/nginx/vhost.d:/etc/nginx/vhost.d:Z"
+      # - "{{ container_storage_dir_base }}/nginx/html:/usr/share/nginx/html:Z"
       - "{{ container_storage_dir_base }}/nginx/certs:/etc/nginx/certs:rw,Z"
-      - /var/run/docker.sock:/var/run/docker.sock:ro,Z
-    security_opts: label:type:docker_t
+      # - acme:/etc/acme.sh:Z
+      - /run/podman/podman.sock:/var/run/docker.sock:ro,Z
+    security_opt:
+      - label:type:docker_t
     env:
       NGINX_PROXY_CONTAINER: "nginx-proxy"
+  register: _podstart
+# - debug: var=_podstart
 
+# - pause:
 
-
-
-
-
-- name: "create persistant nextcloud data directories"
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: '0750'
-  loop:
-    - "{{ container_storage_dir_base }}/nextcloud/nextcloud"
-    - "{{ container_storage_dir_base }}/nextcloud/nextcloud_config"
-    - "{{ container_storage_dir_base }}/nextcloud/nextcloud_custom_apps"
-    - "{{ container_storage_dir_base }}/nextcloud/nextcloud_data"
-    - "{{ container_storage_dir_base }}/nextcloud/nextcloud_themes"
-
-- name: Gather info about the pod
-  containers.podman.podman_pod_info:
-    name: "{{ POD_NAME }}"
-  register: _pod_info
-  when:
-    - POD_NAME is defined
-    - POD_NAME | length > 0
-
-- name: create the pod
-  containers.podman.podman_pod:
-    name: "{{ POD_NAME }}"
-    publish: "{{ POD_PUBLISHED_PORTS | default(omit) }}"
-  register: _pod_info
-  when:
-    - POD_NAME is defined
-    - POD_NAME | length > 0
-    - _pod_info.pods | length == 0
-
-- name: Pull an image
-  containers.podman.podman_image:
-    name: "nextcloud:{{ NEXTCLOUD_VERSION }}"
-    force: yes
-
-# https://store.docker.com/images/nextcloud
-- name: Nextcloud-Container starten
-  containers.podman.podman_container:
-    name: nextcloud
-    image: "nextcloud:{{ NEXTCLOUD_VERSION }}"
-    pod: "{{ POD_NAME | default(omit) }}"
-    # networks:
-    #   - name: "{{ DOCKER_NETWORK_NAME }}"
-    #     aliases:
-    #       - nextcloud-container
-    # networks_cli_compatible: yes
-    state: started
-    restart_policy: always
-    recreate: yes
-    #restart: yes
-    # pull: yes
-    volume:
-      - "{{ container_storage_dir_base }}/nextcloud/nextcloud:/var/www/html:Z"
-      - "{{ container_storage_dir_base }}/nextcloud/nextcloud_config:/var/www/html/config:Z"
-      - "{{ container_storage_dir_base }}/nextcloud/nextcloud_custom_apps:/var/www/html/custom_apps:Z"
-      - "{{ container_storage_dir_base }}/nextcloud/nextcloud_data:/var/www/html/data:Z"
-      - "{{ container_storage_dir_base }}/nextcloud/nextcloud_themes:/var/www/html/themes:Z"
-    env: "{{ nextcloud_env.server | combine( nextcloud_env_additions | default({}) ) }}"
-
-- name: nextcloud | wait for nextcloud service comes up
-  ansible.builtin.uri:
-    url: "https://{{ nextcloud_env.letsencrypt.VIRTUAL_HOST.split(',')[0] }}/"
-    status_code: 200
-    validate_certs: False
-  register: result
-  until: result is succeeded
-  retries: 120
-  delay: 10
+# - name: whoami-Container starten
+#   # test with 'curl -H "Host: whoami.wernigerode-brocken.de" whoami.wernigerode-brocken.de'
+#   containers.podman.podman_container:
+#     name: whoami
+#     image: docker.io/jwilder/whoami
+#     # pod: "{{ pod_name | default(omit) }}"
+#     state: started
+#     restart_policy: always
+#     recreate: true
+#     env:
+#       VIRTUAL_HOST: "mailcloud-ppd.sleif.de"
+#       LETSENCRYPT_HOST: "mailcloud-ppd.sleif.de"
+#       LETSENCRYPT_EMAIL: "misc1@sleif.de"
+#       LETSENCRYPT_TEST: "true"
