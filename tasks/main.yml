@@ -82,10 +82,16 @@
       com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: true
     security_opt:
       - label:type:docker_t
-  # register: _podstart
-  # ignore_errors: true
+    generate_systemd:
+      path: /etc/systemd/system/
+      restart_policy: always
+  register: _podstart
+# ignore_errors: true
 
-# - debug: var=_podstart
+- name: Letsencrypt_nginx_container | enable systemd service
+  ansible.builtin.service:
+    name: "{{ (_podstart.podman_systemd | dict2items | list | first).key }}"
+    enabled: true
 
 - name: Letsencrypt_nginx_container | additional nginx proxy configuration nginx/vhost.d/default
   ansible.builtin.lineinfile:
@@ -131,22 +137,41 @@
       - label:type:docker_t
     env:
       NGINX_PROXY_CONTAINER: "nginx-proxy"
+    generate_systemd:
+      path: /etc/systemd/system/
+      restart_policy: always
   register: _podstart
 # - debug: var=_podstart
 
+- name: Letsencrypt_nginx_container | enable systemd service
+  ansible.builtin.service:
+    name: "{{ (_podstart.podman_systemd | dict2items | list | first).key }}"
+    enabled: true
+
 # - pause:
 
-# - name: whoami-Container starten
-#   # test with 'curl -H "Host: whoami.wernigerode-brocken.de" whoami.wernigerode-brocken.de'
-#   containers.podman.podman_container:
-#     name: whoami
-#     image: docker.io/jwilder/whoami
-#     # pod: "{{ pod_name | default(omit) }}"
-#     state: started
-#     restart_policy: always
-#     recreate: true
-#     env:
-#       VIRTUAL_HOST: "mailcloud-ppd.sleif.de"
-#       LETSENCRYPT_HOST: "mailcloud-ppd.sleif.de"
-#       LETSENCRYPT_EMAIL: "misc1@sleif.de"
-#       LETSENCRYPT_TEST: "true"
+- name: whoami-Container starten
+  # test with 'curl -H "Host: whoami.wernigerode-brocken.de" whoami.wernigerode-brocken.de'
+  containers.podman.podman_container:
+    name: whoami
+    image: docker.io/jwilder/whoami
+    # pod: "{{ pod_name | default(omit) }}"
+    state: started
+    restart_policy: always
+    recreate: true
+    env:
+      VIRTUAL_HOST: "mailcloud-ppd.sleif.de"
+      LETSENCRYPT_HOST: "mailcloud-ppd.sleif.de"
+      LETSENCRYPT_EMAIL: "misc1@sleif.de"
+      LETSENCRYPT_TEST: "true"
+    generate_systemd:
+      path: /etc/systemd/system/
+      restart_policy: always
+      # new: true
+  register: _podstart
+# - debug: var=_podstart
+
+- name: Letsencrypt_nginx_container | enable systemd service
+  ansible.builtin.service:
+    name: "{{ (_podstart.podman_systemd | dict2items | list | first).key }}"
+    enabled: true

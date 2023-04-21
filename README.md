@@ -1,26 +1,24 @@
 # sleif.letsencrypt_nginx_container
 
-This role runs a nginx based letsencrypt stack on docker.
+This role runs a Nginx-based lets-encrypt stack on Podman.
 
 ## Requirements
 
-Use it on a machine setup with ansible role sleif.docker.
+na
 
 ## Role Variables
 
 - container_storage_dir_base (/srv)
-- nameserver_fallback_needed (true, in case you want local network independent DNS, example pihole on same docker host)
-- DOCKER_NETWORK_NAME (can be defined in sleif.docker)
+- nameserver_fallback_needed (true, in case you want local network independent DNS, for example, pihole on same docker host)
 
 ## Dependencies
 
 Enterprise Linux version 9
+
 ## Example Playbook
 
     - hosts: "server"
       user: root
-      vars:
-        DOCKER_NETWORK_NAME: 'custom_docker_network'
       roles:
         - { role: sleif.letsencrypt_nginx_container, tags: "letsencrypt_nginx_container" }
 
