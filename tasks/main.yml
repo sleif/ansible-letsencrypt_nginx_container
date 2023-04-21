@@ -1,13 +1,13 @@
 ---
 
-- name: Letsencrypt_nginx_container | Port 443 oeffnen
+- name: "Port 443 oeffnen"
   ansible.posix.firewalld:
     service: https
     permanent: true
     immediate: true
     state: enabled
 
-- name: Letsencrypt_nginx_container | Port 80 oeffnen
+- name: "Port 80 oeffnen"
   ansible.posix.firewalld:
     service: http
     permanent: true
@@ -15,7 +15,7 @@
     state: enabled
 
 # enable fallback nameserver in case pihole is running on the same host
-- name: Letsencrypt_nginx_container | Enable fallback nameserver in resolv.conf
+- name: "Enable fallback nameserver in resolv.conf"
   ansible.builtin.lineinfile:
     path: /etc/resolv.conf
     regexp: "{{ item.regexp }}"
@@ -24,14 +24,14 @@
     - {regexp: '^nameserver 1\.1\.1\.1', line: 'nameserver 1.1.1.1'}
   when: nameserver_fallback_needed | bool
 
-# - name: Letsencrypt_nginx_container | Gather info about the possibly running pod
+# - name: "Gather info about the possibly running pod"
 #   containers.podman.podman_pod_info:
 #     name: "{{ pod_name }}"
 #   register: _pod_info
 #   when:
 #     - pod_name is defined
 #     - pod_name | length > 0
-# - name: Letsencrypt_nginx_container | create the pod
+# - name: "create the pod"
 #   containers.podman.podman_pod:
 #     name: "{{ pod_name }}"
 #     publish: "{{ pod_published_ports | default(omit) }}"
@@ -42,7 +42,7 @@
 #     - _pod_info.pods | length == 0
 # - ansible.builtin.debug: var=_pod_info
 
-- name: Letsencrypt_nginx_container | create persistant nextcloud data directories
+- name: "create persistant nextcloud data directories"
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
@@ -54,12 +54,12 @@
     - "{{ container_storage_dir_base }}/nginx/html"
     - "{{ container_storage_dir_base }}/nginx/log"
 
-# - name: Letsencrypt_nginx_container | pull latest image
+# - name: "pull latest image"
 #   containers.podman.podman_image:
 #     name: "docker.io/jwilder/nginx-proxy:latest"
 #     force: true
 
-- name: Letsencrypt_nginx_container | start jwilder nginx-proxy container
+- name: "start jwilder nginx-proxy container"
   containers.podman.podman_container:
     name: "nginx-proxy"
     image: docker.io/nginxproxy/nginx-proxy
@@ -88,12 +88,12 @@
   register: _podstart
 # ignore_errors: true
 
-- name: Letsencrypt_nginx_container | enable systemd service
+- name: "enable systemd service"
   ansible.builtin.service:
     name: "{{ (_podstart.podman_systemd | dict2items | list | first).key }}"
     enabled: true
 
-- name: Letsencrypt_nginx_container | additional nginx proxy configuration nginx/vhost.d/default
+- name: "additional nginx proxy configuration nginx/vhost.d/default"
   ansible.builtin.lineinfile:
     path: "{{ container_storage_dir_base }}/nginx/vhost.d/default"
     create: true
@@ -110,12 +110,12 @@
   notify: Restart_nginx_proxy
   tags: nginx_defaults
 
-# - name: Letsencrypt_nginx_container | pull latest image of jrcs letsencrypt-nginx-proxy-companion
+# - name: "pull latest image of jrcs letsencrypt-nginx-proxy-companion"
 #   containers.podman.podman_image:
 #     name: "docker.io/jrcs/letsencrypt-nginx-proxy-companion:latest"
 #     force: true
 
-- name: Letsencrypt_nginx_container | start jrcs letsencrypt-nginx-proxy-companion container
+- name: "start jrcs letsencrypt-nginx-proxy-companion container"
   containers.podman.podman_container:
     name: "nginx-letsencrypt"
     image: "docker.io/nginxproxy/acme-companion:latest"
@@ -143,7 +143,7 @@
   register: _podstart
 # - debug: var=_podstart
 
-- name: Letsencrypt_nginx_container | enable systemd service
+- name: "enable systemd service"
   ansible.builtin.service:
     name: "{{ (_podstart.podman_systemd | dict2items | list | first).key }}"
     enabled: true
@@ -171,7 +171,7 @@
   register: _podstart
 # - debug: var=_podstart
 
-- name: Letsencrypt_nginx_container | enable systemd service
+- name: "enable systemd service"
   ansible.builtin.service:
     name: "{{ (_podstart.podman_systemd | dict2items | list | first).key }}"
     enabled: true
