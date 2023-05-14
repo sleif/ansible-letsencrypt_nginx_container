@@ -2,3 +2,5 @@
 
 - name: Restart_nginx_proxy
   ansible.builtin.command: podman kill -s HUP nginx-proxy
+  register: _result
+  changed_when: _result is success
